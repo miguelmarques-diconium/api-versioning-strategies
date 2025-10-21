@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+type car struct {
+	VIN   string `json:"vin"`
+	Brand string `json:"brand"`
+	Model string `json:"model"`
+}
+
 func main() {
 	r := gin.Default()
 	errProxy := r.SetTrustedProxies(nil)
@@ -14,7 +20,10 @@ func main() {
 		return
 	}
 
-	pathStrategy(r)
+	pathStrategyV1(r)
+	pathStrategyV2(r)
+	headerStrategy(r)
+	queryParameterStrategy(r)
 
 	err := r.Run(":8080")
 	if err != nil {
@@ -23,33 +32,78 @@ func main() {
 	}
 }
 
-func pathStrategy(r *gin.Engine) {
+func pathStrategyV1(r *gin.Engine) {
 	r.GET("/v1/cars", func(c *gin.Context) {
-		cars := []string{"CarA", "CarB", "CarC"}
+		cars := []string{"1HGCM82633A123456", "JH4KA9650MC012345", "2FTRX18W1XCA98765"}
+		c.JSON(http.StatusOK, gin.H{"cars": cars})
+	})
+}
+
+func pathStrategyV2(r *gin.Engine) {
+	r.GET("/v2/cars", func(c *gin.Context) {
+		cars := []car{
+			{VIN: "1HGCM82633A123456", Brand: "Honda", Model: "Accord"},
+			{VIN: "JH4KA9650MC012345", Brand: "Acura", Model: "Legend"},
+			{VIN: "2FTRX18W1XCA98765", Brand: "Ford", Model: "F-150"},
+		}
 		c.JSON(http.StatusOK, gin.H{"cars": cars})
 	})
 }
 
 func headerStrategy(r *gin.Engine) {
 	r.GET("/cars", func(c *gin.Context) {
-		cars := []string{"CarA", "CarB", "CarC"}
-		c.JSON(http.StatusOK, gin.H{"cars": cars})
+		acceptHeader := c.GetHeader("Accept")
+		version := pickVersionFromAccept(acceptHeader)
+		if version == "2" {
+			cars := []car{
+				{VIN: "1HGCM82633A123456", Brand: "Honda", Model: "Accord"},
+				{VIN: "JH4KA9650MC012345", Brand: "Acura", Model: "Legend"},
+				{VIN: "2FTRX18W1XCA98765", Brand: "Ford", Model: "F-150"},
+			}
+			c.JSON(http.StatusOK, gin.H{"cars": cars})
+			return
+		}
+
+		if version == "1" {
+			cars := []string{"1HGCM82633A123456", "JH4KA9650MC012345", "2FTRX18W1XCA98765"}
+			c.JSON(http.StatusOK, gin.H{"cars": cars})
+			return
+		}
+
+		// We could also return an error instead of defaulting to latest
 	})
 }
 
+func queryParameterStrategy(r *gin.Engine) {
+	r.GET("/carsQuery", func(c *gin.Context) {
+		version := c.Query("version")
+		if version == "2" || version == "" {
+			cars := []car{
+				{VIN: "1HGCM82633A123456", Brand: "Honda", Model: "Accord"},
+				{VIN: "JH4KA9650MC012345", Brand: "Acura", Model: "Legend"},
+				{VIN: "2FTRX18W1XCA98765", Brand: "Ford", Model: "F-150"},
+			}
+			c.JSON(http.StatusOK, gin.H{"cars": cars})
+			return
+		}
 
-func pickVersionFromAccept(hdrs []string) string {
-	// Look for version parameter or vendor subtype with .v2 for _, h := range hdrs
-	if strings.Contains(h, "version=2") || strings.Contains(h, ".v2+json") {
-		return "2" }
-return "1"
+		if version == "1" {
+			cars := []string{"1HGCM82633A123456", "JH4KA9650MC012345", "2FTRX18W1XCA98765"}
+			c.JSON(http.StatusOK, gin.H{"cars": cars})
+			return
+		}
+	})
 }
-	func tempMain() {
-		r := chi.NewRouter()
-		r.Get("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id := chi.URLParam(r, "id")
-			v := pickVersionFromAccept(r.Header.Values("Accept"))
-			if v == "2" {
-				w.Header().Set("Content-Type", "application/vnd.acme.users.v2+json") json.NewEncoder(w).Encode(map[string]any{"id": id, "full_name": "Alice Smith"})
-				return } w.Header().Set("Content-Type", "application/vnd.acme.users.v1+json") json.NewEncoder(w).Encode(map[string]any{"id": id, "name": "Alice"}) }) http.ListenAndServe(":8080", r)
+
+func pickVersionFromAccept(acceptHeaderValue string) string {
+
+	// Default to latest if no Accept header is provided
+	if acceptHeaderValue == "" {
+		return "2"
 	}
+
+	if strings.Contains(acceptHeaderValue, "version=2") || strings.Contains(acceptHeaderValue, ".v2+json") {
+		return "2"
+	}
+	return "1"
+}

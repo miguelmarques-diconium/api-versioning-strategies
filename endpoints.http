@@ -1,0 +1,29 @@
+### Get cars (v1) - Path versioning
+GET http://localhost:8080/v1/cars
+
+###
+
+### Get cars (v2) - Path versioning
+GET http://localhost:8080/v2/cars
+
+###
+
+### Get cars (v1) - Header versioning
+GET http://localhost:8080/cars
+Accept: application/json; version=1
+
+###
+
+### Get cars (v2) - Header versioning
+GET http://localhost:8080/cars
+Accept: application/json; version=2
+
+###
+
+### Get cars (v1) - Query parameter versioning
+GET http://localhost:8080/carsQuery?version=1
+
+###
+
+### Get cars (v2) - Query parameter versioning
+GET http://localhost:8080/carsQuery?version=2
